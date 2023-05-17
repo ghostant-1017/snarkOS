@@ -18,7 +18,7 @@ use super::*;
 
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
-use snarkvm::prelude::Transaction;
+use snarkvm::prelude::{Identifier, Plaintext, Transaction};
 
 /// The `get_blocks` query object.
 #[derive(Deserialize, Serialize)]
@@ -237,5 +237,14 @@ impl<N: Network, C: ConsensusStorage<N>, R: Routing<N>> Rest<N, C, R> {
         rest.routing.propagate(message, &[]);
 
         Ok(ErasedJson::pretty(tx_id))
+    }
+
+    // GET /testnet3/mapping
+    pub(crate) async fn read_mapping_by_key_id(
+        State(rest): State<Self>,
+        Path((program_id, mapping_name, key)): Path<(ProgramID<N>, Identifier<N>, Plaintext<N>)>,
+    ) -> Result<ErasedJson, RestError> {
+        let value = rest.ledger.vm().finalize_store().get_value_speculative(&program_id, &mapping_name, &key)?;
+        Ok(ErasedJson::pretty(value))
     }
 }
