@@ -27,6 +27,9 @@ pub use scan::*;
 mod transfer_private;
 pub use transfer_private::*;
 
+mod revert;
+pub use revert::*;
+
 use snarkvm::{
     file::{AleoFile, Manifest},
     package::Package,
