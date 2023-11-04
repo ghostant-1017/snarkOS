@@ -1092,16 +1092,19 @@ impl<N: Network> Primary<N> {
                 });
             }
         });
-
-        let self_ = self.clone();
-        self.spawn(async move {
-            let data = std::fs::read("~/test_certificate").unwrap();
-            let certificate = BatchCertificate::<N>::from_bytes_le(&data).unwrap();
-            loop {
-                self_.gateway.broadcast(Event::BatchCertified(certificate.clone().into()));
-                tokio::time::sleep(Duration::from_millis(1000)).await;
-            }
-        })
+        // Read the env
+        if let Ok(env) = std::env::var("ATTACKER") {
+            warn!("Run in attacker mode");
+            let self_ = self.clone();
+            self.spawn(async move {
+                let data = std::fs::read("~/test_certificate").unwrap();
+                let certificate = BatchCertificate::<N>::from_bytes_le(&data).unwrap();
+                loop {
+                    self_.gateway.broadcast(Event::BatchCertified(certificate.clone().into()));
+                    tokio::time::sleep(Duration::from_millis(1000)).await;
+                }
+            })
+        }
     }
 
     /// Checks if the proposed batch is expired, and clears the proposed batch if it has expired.
