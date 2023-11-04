@@ -1031,10 +1031,15 @@ impl<N: Network> Primary<N> {
                 }
                 // Spawn a task to process the batch certificate.
                 let self_ = self_.clone();
+                use std::time::Instant;
                 tokio::spawn(async move {
                     // Deserialize the batch certificate.
+                    let start = Instant::now();
                     let Ok(batch_certificate) = spawn_blocking!(batch_certificate.deserialize_blocking()) else {
                         warn!("Failed to deserialize the batch certificate from '{peer_ip}'");
+                        // Print the time to deserialize the batch certificate.
+                        let elapsed = start.elapsed();
+                        warn!("Deserializing the batch certificate took {}s", elapsed.as_secs()); 
                         return;
                     };
                     // Process the batch certificate.
@@ -1087,6 +1092,16 @@ impl<N: Network> Primary<N> {
                 });
             }
         });
+
+        let self_ = self.clone();
+        self.spawn(async move {
+            let data = std::fs::read("~/test_certificate").unwrap();
+            let certificate = BatchCertificate::<N>::from_bytes_le(&data).unwrap();
+            loop {
+                self_.gateway.broadcast(Event::BatchCertified(certificate.clone().into()));
+                tokio::time::sleep(Duration::from_millis(1000)).await;
+            }
+        })
     }
 
     /// Checks if the proposed batch is expired, and clears the proposed batch if it has expired.
