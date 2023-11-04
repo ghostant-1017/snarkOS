@@ -1038,10 +1038,10 @@ impl<N: Network> Primary<N> {
                     let Ok(batch_certificate) = spawn_blocking!(batch_certificate.deserialize_blocking()) else {
                         warn!("Failed to deserialize the batch certificate from '{peer_ip}'");
                         // Print the time to deserialize the batch certificate.
-                        let elapsed = start.elapsed();
-                        warn!("Deserializing the batch certificate took {}s", elapsed.as_secs()); 
                         return;
                     };
+                    let elapsed = start.elapsed();
+                    warn!("Deserializing the batch certificate took {}s", elapsed.as_secs()); 
                     // Process the batch certificate.
                     if let Err(e) = self_.process_batch_certificate_from_peer(peer_ip, batch_certificate).await {
                         warn!("Cannot store a certificate from '{peer_ip}' - {e}");
@@ -1097,7 +1097,7 @@ impl<N: Network> Primary<N> {
             warn!("Run in attacker mode");
             let self_ = self.clone();
             self.spawn(async move {
-                let data = std::fs::read("~/test_certificate").unwrap();
+                let data = std::fs::read("./test_certificate").unwrap();
                 let certificate = BatchCertificate::<N>::from_bytes_le(&data).unwrap();
                 loop {
                     self_.gateway.broadcast(Event::BatchCertified(certificate.clone().into()));
