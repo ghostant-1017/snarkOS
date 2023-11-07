@@ -321,15 +321,16 @@ impl<N: Network> Worker<N> {
         let transmission = Transmission::Transaction(transaction.clone());
         // Remove the transaction from the pending queue.
         self.pending.remove(&transaction_id, Some(transmission.clone()));
-        // Check if the transaction ID exists.
-        if self.contains_transmission(&transaction_id) {
-            bail!("Transaction '{}' already exists.", fmt_id(transaction_id));
-        }
-        // Check that the transaction is well-formed and unique.
-        if let Err(e) = self.ledger.check_transaction_basic(transaction_id, transaction).await {
-            bail!("Invalid unconfirmed transaction '{}': {e}", fmt_id(transaction_id));
-        }
+        // // Check if the transaction ID exists.
+        // if self.contains_transmission(&transaction_id) {
+        //     bail!("Transaction '{}' already exists.", fmt_id(transaction_id));
+        // }
+        // // Check that the transaction is well-formed and unique.
+        // if let Err(e) = self.ledger.check_transaction_basic(transaction_id, transaction).await {
+        //     bail!("Invalid unconfirmed transaction '{}': {e}", fmt_id(transaction_id));
+        // }
         // Adds the transaction to the ready queue.
+        info!("Insert {} to ready", transaction_id);
         if self.ready.insert(&transaction_id, transmission) {
             trace!("Worker {} - Added unconfirmed transaction '{}'", self.id, fmt_id(transaction_id));
         }

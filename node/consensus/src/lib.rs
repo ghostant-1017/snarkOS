@@ -228,58 +228,60 @@ impl<N: Network> Consensus<N> {
 
     /// Adds the given unconfirmed transaction to the memory pool.
     pub async fn add_unconfirmed_transaction(&self, transaction: Transaction<N>) -> Result<()> {
-        // Process the unconfirmed transaction.
-        {
-            let transaction_id = transaction.id();
+        self.primary_sender().send_unconfirmed_transaction(transaction.id(), Data::Object(transaction)).await;
+        return Ok(())
+        // // Process the unconfirmed transaction.
+        // {
+        //     let transaction_id = transaction.id();
 
-            // Check that the transaction is not a fee transaction.
-            if transaction.is_fee() {
-                bail!("Transaction '{}' is a fee transaction {}", fmt_id(transaction_id), "(skipping)".dimmed());
-            }
-            // Check if the transaction was recently seen.
-            if self.seen_transactions.lock().put(transaction_id, ()).is_some() {
-                // If the transaction was recently seen, return early.
-                return Ok(());
-            }
-            // Check if the transaction already exists in the ledger.
-            if self.ledger.contains_transmission(&TransmissionID::from(&transaction_id))? {
-                bail!("Transaction '{}' exists in the ledger {}", fmt_id(transaction_id), "(skipping)".dimmed());
-            }
-            // Add the transaction to the memory pool.
-            trace!("Received unconfirmed transaction '{}' in the queue", fmt_id(transaction_id));
-            if self.transactions_queue.lock().insert(transaction_id, transaction).is_some() {
-                bail!("Transaction '{}' exists in the memory pool", fmt_id(transaction_id));
-            }
-        }
+        //     // Check that the transaction is not a fee transaction.
+        //     if transaction.is_fee() {
+        //         bail!("Transaction '{}' is a fee transaction {}", fmt_id(transaction_id), "(skipping)".dimmed());
+        //     }
+        //     // Check if the transaction was recently seen.
+        //     if self.seen_transactions.lock().put(transaction_id, ()).is_some() {
+        //         // If the transaction was recently seen, return early.
+        //         return Ok(());
+        //     }
+        //     // Check if the transaction already exists in the ledger.
+        //     if self.ledger.contains_transmission(&TransmissionID::from(&transaction_id))? {
+        //         bail!("Transaction '{}' exists in the ledger {}", fmt_id(transaction_id), "(skipping)".dimmed());
+        //     }
+        //     // Add the transaction to the memory pool.
+        //     trace!("Received unconfirmed transaction '{}' in the queue", fmt_id(transaction_id));
+        //     if self.transactions_queue.lock().insert(transaction_id, transaction).is_some() {
+        //         bail!("Transaction '{}' exists in the memory pool", fmt_id(transaction_id));
+        //     }
+        // }
 
-        // If the memory pool of this node is full, return early.
-        let num_unconfirmed = self.num_unconfirmed_transmissions();
-        if num_unconfirmed > MAX_TRANSMISSIONS_PER_BATCH {
-            return Ok(());
-        }
-        // Retrieve the transactions.
-        let transactions = {
-            // Determine the available capacity.
-            let capacity = MAX_TRANSMISSIONS_PER_BATCH.saturating_sub(num_unconfirmed);
-            // Acquire the lock on the queue.
-            let mut queue = self.transactions_queue.lock();
-            // Determine the number of transactions to send.
-            let num_transactions = queue.len().min(capacity);
-            // Drain the solutions from the queue.
-            queue.drain(..num_transactions).collect::<Vec<_>>()
-        };
-        // Iterate over the transactions.
-        for (_, transaction) in transactions.into_iter() {
-            let transaction_id = transaction.id();
-            trace!("Adding unconfirmed transaction '{}' to the memory pool...", fmt_id(transaction_id));
-            // Send the unconfirmed transaction to the primary.
-            if let Err(e) =
-                self.primary_sender().send_unconfirmed_transaction(transaction_id, Data::Object(transaction)).await
-            {
-                warn!("Failed to add unconfirmed transaction '{}' to the memory pool - {e}", fmt_id(transaction_id));
-            }
-        }
-        Ok(())
+        // // If the memory pool of this node is full, return early.
+        // let num_unconfirmed = self.num_unconfirmed_transmissions();
+        // if num_unconfirmed > MAX_TRANSMISSIONS_PER_BATCH {
+        //     return Ok(());
+        // }
+        // // Retrieve the transactions.
+        // let transactions = {
+        //     // Determine the available capacity.
+        //     let capacity = MAX_TRANSMISSIONS_PER_BATCH.saturating_sub(num_unconfirmed);
+        //     // Acquire the lock on the queue.
+        //     let mut queue = self.transactions_queue.lock();
+        //     // Determine the number of transactions to send.
+        //     let num_transactions = queue.len().min(capacity);
+        //     // Drain the solutions from the queue.
+        //     queue.drain(..num_transactions).collect::<Vec<_>>()
+        // };
+        // // Iterate over the transactions.
+        // for (_, transaction) in transactions.into_iter() {
+        //     let transaction_id = transaction.id();
+        //     trace!("Adding unconfirmed transaction '{}' to the memory pool...", fmt_id(transaction_id));
+        //     // Send the unconfirmed transaction to the primary.
+        //     if let Err(e) =
+        //         self.primary_sender().send_unconfirmed_transaction(transaction_id, Data::Object(transaction)).await
+        //     {
+        //         warn!("Failed to add unconfirmed transaction '{}' to the memory pool - {e}", fmt_id(transaction_id));
+        //     }
+        // }
+        // Ok(())
     }
 }
 
