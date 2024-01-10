@@ -192,7 +192,7 @@ impl<N: Network> Sync<N> {
         // Acquire the sync lock.
         let _lock = self.lock.lock().await;
 
-        debug!("Syncing storage with the ledger from block {} to {}...", gc_height, block_height.saturating_add(1));
+        debug!("Syncing storage with the ledger from block {} to {}...", gc_height, block_height);
 
         /* Sync storage */
 
