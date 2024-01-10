@@ -1310,6 +1310,8 @@ impl<N: Network> Primary<N> {
         let is_quorum_threshold_reached = {
             let certificates = self.storage.get_certificates_for_round(batch_round);
             let authors = certificates.iter().map(BatchCertificate::author).collect();
+            // WARNING: our local view of the committee may be outdated, 
+            // the committee may have changed, cause the check may be incorrect.
             let previous_committee = self.ledger.get_previous_committee_for_round(batch_round)?;
             previous_committee.is_quorum_threshold_reached(&authors)
         };
