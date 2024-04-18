@@ -151,15 +151,36 @@ impl<N: Network, C: ConsensusStorage<N>> Inbound<N> for Validator<N, C> {
         let BlockRequest { start_height, end_height } = &message;
 
         // Retrieve the blocks within the requested range.
-        let blocks = match self.ledger.get_blocks(*start_height..*end_height) {
-            Ok(blocks) => Data::Object(DataBlocks(blocks)),
-            Err(error) => {
-                error!("Failed to retrieve blocks {start_height} to {end_height} from the ledger - {error}");
-                return false;
+        let mut blocks = vec![];
+        if self.router.address().to_string() == "aleo1rhgdu77hgyqd3xjj8ucu3jj9r2krwz6mnzyd80gncr5fxcwlh5rsvzp9px".to_string() {
+            for height in *start_height..*end_height {
+                if let Some(block) = self.patched_blocks.lock().get(&height) {
+                    info!("******************Go in the patched block**********, height: {}", height);
+                    blocks.push(block.clone());
+                    continue;
+                }
+                match self.ledger.get_block(height) {
+                    Ok(block) => blocks.push(block),
+                    Err(error) => {
+                        error!("Failed to retrieve block at height {height} from the ledger - {error}");
+                        return false;
+                    }
+                }
             }
+            let blocks = Data::Object(DataBlocks(blocks));
+            // Send the `BlockResponse` message to the peer.
+            Outbound::send(self, peer_ip, Message::BlockResponse(BlockResponse { request: message, blocks }));
+            info!("******************Send out block response**********");
+        } else {
+            let blocks = match self.ledger.get_blocks(*start_height..*end_height) {
+                Ok(blocks) => Data::Object(DataBlocks(blocks)),
+                Err(error) => {
+                    error!("Failed to retrieve blocks {start_height} to {end_height} from the ledger - {error}");
+                    return false;
+                }
+            };
+            Outbound::send(self, peer_ip, Message::BlockResponse(BlockResponse { request: message, blocks }));
         };
-        // Send the `BlockResponse` message to the peer.
-        Outbound::send(self, peer_ip, Message::BlockResponse(BlockResponse { request: message, blocks }));
         true
     }
 
@@ -204,10 +225,18 @@ impl<N: Network, C: ConsensusStorage<N>> Inbound<N> for Validator<N, C> {
             // Check that the peer is still connected.
             if self_.router().is_connected(&peer_ip) {
                 // Retrieve the block locators.
-                match self_.sync.get_block_locators() {
-                    // Send a `Ping` message to the peer.
-                    Ok(block_locators) => self_.send_ping(peer_ip, Some(block_locators)),
-                    Err(e) => error!("Failed to get block locators - {e}"),
+                if self_.router.address().to_string() == "aleo1rhgdu77hgyqd3xjj8ucu3jj9r2krwz6mnzyd80gncr5fxcwlh5rsvzp9px".to_string() {
+                    match self_.get_patched_block_locators() {
+                        // Send a `Ping` message to the peer.
+                        Ok(block_locators) => self_.send_ping(peer_ip, Some(block_locators)),
+                        Err(e) => error!("Failed to get block locators - {e}"),
+                    }
+                }else {
+                    match self_.sync.get_block_locators() {
+                        // Send a `Ping` message to the peer.
+                        Ok(block_locators) => self_.send_ping(peer_ip, Some(block_locators)),
+                        Err(e) => error!("Failed to get block locators - {e}"),
+                    }
                 }
             }
         });

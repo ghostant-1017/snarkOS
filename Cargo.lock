@@ -3250,6 +3250,7 @@ dependencies = [
  "snarkos-node-sync-communication-service",
  "snarkos-node-sync-locators",
  "snarkvm",
+ "time",
  "tokio",
  "tracing",
 ]
