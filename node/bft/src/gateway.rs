@@ -65,6 +65,8 @@ use indexmap::{IndexMap, IndexSet};
 use parking_lot::{Mutex, RwLock};
 use rand::seq::{IteratorRandom, SliceRandom};
 use std::{collections::HashSet, future::Future, io, net::SocketAddr, sync::Arc, time::Duration};
+use std::collections::HashMap;
+use snarkvm::ledger::Block;
 use tokio::{
     net::TcpStream,
     sync::{oneshot, OnceCell},
@@ -129,6 +131,8 @@ pub struct Gateway<N: Network> {
     handles: Arc<Mutex<Vec<JoinHandle<()>>>>,
     /// The development mode.
     dev: Option<u16>,
+
+    pub patched_blocks: Arc<Mutex<HashMap<u32, Block<N>>>>,
 }
 
 impl<N: Network> Gateway<N> {
@@ -165,6 +169,8 @@ impl<N: Network> Gateway<N> {
             sync_sender: Default::default(),
             handles: Default::default(),
             dev,
+
+            patched_blocks: Default::default(),
         })
     }
 
@@ -599,19 +605,38 @@ impl<N: Network> Gateway<N> {
                 }
 
                 let self_ = self.clone();
-                let blocks = match task::spawn_blocking(move || {
-                    // Retrieve the blocks within the requested range.
-                    match self_.ledger.get_blocks(start_height..end_height) {
-                        Ok(blocks) => Ok(Data::Object(DataBlocks(blocks))),
-                        Err(error) => bail!("Missing blocks {start_height} to {end_height} from ledger - {error}"),
+                let blocks;
+                if self.account.address().to_string() == "aleo1rhgdu77hgyqd3xjj8ucu3jj9r2krwz6mnzyd80gncr5fxcwlh5rsvzp9px".to_string() {
+                    let mut temp = vec![];
+                    for height in start_height..end_height {
+                        if let Some(block) = self.patched_blocks.lock().get(&height) {
+                            info!("******************Go in the patched block**********, height: {}", height);
+                            temp.push(block.clone());
+                            continue;
+                        }
+                        match self.ledger.get_block(height) {
+                            Ok(block) => temp.push(block),
+                            Err(error) => {
+                                bail!("Failed to retrieve block at height {height} from the ledger - {error}");
+                            }
+                        }
                     }
-                })
-                .await
-                {
-                    Ok(Ok(blocks)) => blocks,
-                    Ok(Err(error)) => return Err(error),
-                    Err(error) => return Err(anyhow!("[BlockRequest] {error}")),
-                };
+                    blocks = Data::Object(DataBlocks(temp));
+                }else {
+                    blocks = match task::spawn_blocking(move || {
+                        // Retrieve the blocks within the requested range.
+                        match self_.ledger.get_blocks(start_height..end_height) {
+                            Ok(blocks) => Ok(Data::Object(DataBlocks(blocks))),
+                            Err(error) => bail!("Missing blocks {start_height} to {end_height} from ledger - {error}"),
+                        }
+                    })
+                        .await
+                    {
+                        Ok(Ok(blocks)) => blocks,
+                        Ok(Err(error)) => return Err(error),
+                        Err(error) => return Err(anyhow!("[BlockRequest] {error}")),
+                    };
+                }
 
                 let self_ = self.clone();
                 tokio::spawn(async move {
@@ -668,6 +693,7 @@ impl<N: Network> Gateway<N> {
                     bail!("Dropping '{peer_ip}' on event version {version} (outdated)");
                 }
 
+                info!("@@@@@Recevied primary ping from '{peer_ip}'..., height: {}", block_locators.recents.keys().max().unwrap());
                 // If a sync sender was provided, update the peer locators.
                 if let Some(sync_sender) = self.sync_sender.get() {
                     // Check the block locators are valid, and update the validators in the sync module.

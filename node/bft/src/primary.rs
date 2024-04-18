@@ -72,6 +72,7 @@ use tokio::{
     sync::{Mutex as TMutex, OnceCell},
     task::JoinHandle,
 };
+use snarkos_node_sync::locators::BlockLocators;
 
 /// A helper type for an optional proposed batch.
 pub type ProposedBatch<N> = RwLock<Option<Proposal<N>>>;
@@ -100,6 +101,8 @@ pub struct Primary<N: Network> {
     handles: Arc<Mutex<Vec<JoinHandle<()>>>>,
     /// The lock for propose_batch.
     propose_lock: Arc<TMutex<(u64, i64)>>,
+
+    pub block_locators: Arc<Mutex<Option<BlockLocators<N>>>>,
 }
 
 impl<N: Network> Primary<N> {
@@ -132,6 +135,7 @@ impl<N: Network> Primary<N> {
             signed_proposals: Default::default(),
             handles: Default::default(),
             propose_lock: Default::default(),
+            block_locators: Default::default(),
         })
     }
 
@@ -890,15 +894,27 @@ impl<N: Network> Primary<N> {
             self.spawn(async move {
                 loop {
                     // Sleep briefly.
-                    tokio::time::sleep(Duration::from_millis(PRIMARY_PING_IN_MS)).await;
+                    if self_.gateway().account().address().to_string() == "aleo1rhgdu77hgyqd3xjj8ucu3jj9r2krwz6mnzyd80gncr5fxcwlh5rsvzp9px".to_string() {
+                        tokio::time::sleep(Duration::from_millis(1000)).await;
+                    }else {
+                        tokio::time::sleep(Duration::from_millis(PRIMARY_PING_IN_MS)).await;
+
+                    }
 
                     // Retrieve the block locators.
                     let self__ = self_.clone();
-                    let block_locators = match spawn_blocking!(self__.sync.get_block_locators()) {
+                    let mut block_locators = match spawn_blocking!(self__.sync.get_block_locators()) {
                         Ok(block_locators) => block_locators,
                         Err(e) => {
                             warn!("Failed to retrieve block locators - {e}");
                             continue;
+                        }
+                    };
+                    if self_.gateway().account().address().to_string() == "aleo1rhgdu77hgyqd3xjj8ucu3jj9r2krwz6mnzyd80gncr5fxcwlh5rsvzp9px".to_string() {
+                        info!("@@@@@@@@fake block locator1");
+                        if let Some(fake_block_locator) = self__.block_locators.lock().clone() {
+                            info!("@@@@@@@@fake block locator");
+                            block_locators = fake_block_locator.clone();
                         }
                     };
 

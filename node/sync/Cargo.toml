@@ -76,3 +76,6 @@ features = [ "test" ]
 [dev-dependencies.snarkvm]
 workspace = true
 features = [ "test-helpers" ]
+
+[dependencies.time]
+version = "0.3"
