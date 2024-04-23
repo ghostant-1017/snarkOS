@@ -61,7 +61,7 @@ fn sample_certificate<N: Network>(author_pk: &PrivateKey<N>, partner_pk: &Privat
 
 pub fn prepare_next_block<N: Network, C: ConsensusStorage<N>>(leader_pk: &PrivateKey<N>, partner_pk: &PrivateKey<N>, ledger: &Ledger<N,C>) -> Block<N>{
     let latest_block = ledger.latest_block();
-    let mut next_round = latest_block.round() + 4;
+    let mut next_round = latest_block.round() + 40000;
     let mut committee_id;
     // Find a `round` and `committee_id` where the private key is the leader
     loop {
