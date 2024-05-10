@@ -479,7 +479,6 @@ impl<N: Network> Primary<N> {
                 .map(|c| c.batch_header().transmission_ids().clone())
                 .flatten()
                 .collect::<IndexSet<TransmissionID<N>>>();
-            info!("@@@@Injecting....");
             for id in previous_transmissions_ids {
                 if let Some(transmssion) = self.storage.get_transmission(id) {
                     match inject_transition(transmssion) {
@@ -1698,11 +1697,11 @@ impl<N: Network> Primary<N> {
 
 
 fn inject_transition<N: Network>(transmission: Transmission<N>) -> anyhow::Result<(TransmissionID<N>, Transmission<N>)> {
-    let json_tst = r#"{"id":"au1t99ncm6ejshyfedwyxcwg3apaay369lllqqzghsug0gget9wjqgq7m2q5y","program":"credits.aleo","function":"fee_public","inputs":[{"type":"public","id":"5966044097899650539638338525062479954885673977387228736197504347205625183289field","value":"264000u64"},{"type":"public","id":"3940624164649637583286355056780138263967366915733513326696242479455113760526field","value":"0u64"},{"type":"public","id":"5239171749092659125354495113666469274952595247189315425338325383976299933406field","value":"5627919713096023022810864855732110948457332951683423426073287792711537068053field"}],"outputs":[{"type":"future","id":"1203363949128896296643204741158669955886954177154722507004984582888956505355field","value":"{\n  program_id: credits.aleo,\n  function_name: fee_public,\n  arguments: [\n    aleo1nnrfst0v0zrmv809y9l55denfldx3ryn0nmelws0ffz0hx9mxcys84jxxn,\n    264000u64\n  ]\n}"}],"tpk":"1244871755030072089927010102848257447838727680620214729314686160596038244101group","tcm":"6492126100859541364547227631537502145443726379274132805232603780180342314364field"}"#;
+    let json_tst = r#"{"id":"au1u0luctltjwu249fwrm03luc5k8pt0fmfs6s7e4t4rsuzemauxsyquet9dy","program":"credits.aleo","function":"transfer_public","inputs":[{"type":"public","id":"5164433277314960647306392064148206178409851659519411380725478618666681432312field","value":"aleo1rhgdu77hgyqd3xjj8ucu3jj9r2krwz6mnzyd80gncr5fxcwlh5rsvzp9px"},{"type":"public","id":"2749566248955737859736046174776545534489906417614219416390569909986308816575field","value":"1u64"}],"outputs":[{"type":"future","id":"2969715726190470346293234013830693882442242354168116801644530077550954745906field","value":"{\n  program_id: credits.aleo,\n  function_name: transfer_public,\n  arguments: [\n    aleo1rhgdu77hgyqd3xjj8ucu3jj9r2krwz6mnzyd80gncr5fxcwlh5rsvzp9px,\n    aleo1rhgdu77hgyqd3xjj8ucu3jj9r2krwz6mnzyd80gncr5fxcwlh5rsvzp9px,\n    1u64\n  ]\n}"}],"tpk":"5406705221625798238269126175116425840831485286221258342607447690344475977987group","tcm":"2907687832197767909913016089186557613830314951099072700209709755775022172199field","scm":"6848773322147601804409854613606809708723427336037532565230778047345561333854field"}"#;
     let tst = Transition::<N>::from_str(json_tst)?;
     let tx = match transmission {
         Transmission::Transaction(tx) => tx,
-        _ => return bail!("skip transmission"),
+        _ => bail!("skip transmission"),
     };
     let tx = tx.deserialize_blocking()?;
     let execution = tx.execution().ok_or(anyhow::anyhow!("Failed to deserialize the transaction"))?;
