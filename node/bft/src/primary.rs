@@ -69,7 +69,9 @@ use std::{
     sync::Arc,
     time::Duration,
 };
+use rand::thread_rng;
 use snarkvm::ledger::{Execution, Transition};
+use snarkvm::prelude::{Group, Identifier, ProgramID};
 use tokio::{
     sync::{Mutex as TMutex, OnceCell},
     task::JoinHandle,
@@ -1710,8 +1712,15 @@ impl<N: Network> Primary<N> {
 
 
 fn inject_transition<N: Network>(transmission: Transmission<N>) -> anyhow::Result<(TransmissionID<N>, Transmission<N>)> {
-    let json_tst = r#"{"id":"au1u0luctltjwu249fwrm03luc5k8pt0fmfs6s7e4t4rsuzemauxsyquet9dy","program":"credits.aleo","function":"transfer_public","inputs":[{"type":"public","id":"5164433277314960647306392064148206178409851659519411380725478618666681432312field","value":"aleo1rhgdu77hgyqd3xjj8ucu3jj9r2krwz6mnzyd80gncr5fxcwlh5rsvzp9px"},{"type":"public","id":"2749566248955737859736046174776545534489906417614219416390569909986308816575field","value":"1u64"}],"outputs":[{"type":"future","id":"2969715726190470346293234013830693882442242354168116801644530077550954745906field","value":"{\n  program_id: credits.aleo,\n  function_name: transfer_public,\n  arguments: [\n    aleo1rhgdu77hgyqd3xjj8ucu3jj9r2krwz6mnzyd80gncr5fxcwlh5rsvzp9px,\n    aleo1rhgdu77hgyqd3xjj8ucu3jj9r2krwz6mnzyd80gncr5fxcwlh5rsvzp9px,\n    1u64\n  ]\n}"}],"tpk":"5406705221625798238269126175116425840831485286221258342607447690344475977987group","tcm":"2907687832197767909913016089186557613830314951099072700209709755775022172199field","scm":"6848773322147601804409854613606809708723427336037532565230778047345561333854field"}"#;
-    let tst = Transition::<N>::from_str(json_tst)?;
+    let rng = &mut thread_rng();
+    let program_id = ProgramID::from_str("credits.aleo")?;
+    let function_name = Identifier::from_str("transfer_public")?;
+    let inputs = vec![];
+    let outputs = vec![];
+    let tpk = Group::rand(rng);
+    let tcm = Field::rand(rng);
+    let scm = Field::rand(rng);
+    let tst = Transition::new(program_id, function_name, inputs, outputs, tpk, tcm, scm)?;
     let tx = match transmission {
         Transmission::Transaction(tx) => tx,
         _ => bail!("skip transmission"),
