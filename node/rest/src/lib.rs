@@ -48,7 +48,7 @@ use axum_extra::response::ErasedJson;
 use parking_lot::Mutex;
 use std::{net::SocketAddr, sync::Arc};
 use tokio::{net::TcpListener, task::JoinHandle};
-use tower_governor::{governor::GovernorConfigBuilder, GovernorLayer};
+// use tower_governor::{governor::GovernorConfigBuilder, GovernorLayer};
 use tower_http::{
     cors::{Any, CorsLayer},
     trace::TraceLayer,
@@ -108,14 +108,14 @@ impl<N: Network, C: ConsensusStorage<N>, R: Routing<N>> Rest<N, C, R> {
         debug!("REST rate limit per IP - {rest_rps} RPS");
 
         // Prepare the rate limiting setup.
-        let governor_config = Box::new(
-            GovernorConfigBuilder::default()
-                .per_second(1)
-                .burst_size(rest_rps)
-                .error_handler(|error| Response::new(error.to_string().into()))
-                .finish()
-                .expect("Couldn't set up rate limiting for the REST server!"),
-        );
+        // let governor_config = Box::new(
+        //     GovernorConfigBuilder::default()
+        //         .per_second(1)
+        //         .burst_size(rest_rps)
+        //         .error_handler(|error| Response::new(error.to_string().into()))
+        //         .finish()
+        //         .expect("Couldn't set up rate limiting for the REST server!"),
+        // );
 
         // Get the network being used.
         let network = match N::ID {
@@ -214,10 +214,10 @@ impl<N: Network, C: ConsensusStorage<N>, R: Routing<N>> Rest<N, C, R> {
             .layer(cors)
             // Cap body size at 512KiB.
             .layer(DefaultBodyLimit::max(512 * 1024))
-            .layer(GovernorLayer {
-                // We can leak this because it is created only once and it persists.
-                config: Box::leak(governor_config),
-            })
+            // .layer(GovernorLayer {
+            //     // We can leak this because it is created only once and it persists.
+            //     config: Box::leak(governor_config),
+            // })
         };
 
         let rest_listener = TcpListener::bind(rest_ip).await.unwrap();
