@@ -310,6 +310,8 @@ impl<N: Network> Consensus<N> {
         if num_unconfirmed_solutions >= N::MAX_SOLUTIONS
             || num_unconfirmed_transmissions >= Primary::<N>::MAX_TRANSMISSIONS_TOLERANCE
         {
+            // We should consider the solution is not seen because it is not added to the memory pool.
+            self.seen_solutions.lock().pop(&solution.id());
             return Ok(());
         }
         // Retrieve the solutions.
