@@ -382,6 +382,8 @@ impl<N: Network> Consensus<N> {
         // If the memory pool of this node is full, return early.
         let num_unconfirmed_transmissions = self.num_unconfirmed_transmissions();
         if num_unconfirmed_transmissions >= Primary::<N>::MAX_TRANSMISSIONS_TOLERANCE {
+            // We should consider the transaction is not seen because it is not added to the memory pool.
+            self.seen_transactions.lock().pop(&transaction.id());
             return Ok(());
         }
         // Retrieve the transactions.
