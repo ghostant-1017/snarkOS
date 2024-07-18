@@ -291,6 +291,7 @@ impl<N: Network> Consensus<N> {
             // Check if the transaction was recently seen.
             if self.seen_solutions.lock().put(solution_id, ()).is_some() {
                 // If the transaction was recently seen, return early.
+                info!("Solution '{}' was recently seen, solution_queue length: {}", solution_id. self.solutions_queue.lock().len());
                 return Ok(());
             }
             // Check if the solution already exists in the ledger.
