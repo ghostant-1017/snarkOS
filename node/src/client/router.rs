@@ -307,9 +307,13 @@ impl<N: Network, C: ConsensusStorage<N>> Inbound<N> for Client<N, C> {
             match is_valid {
                 // If the solution is valid, propagate the `UnconfirmedSolution`.
                 Ok(Ok(())) => {
-                    let message = Message::UnconfirmedSolution(serialized);
+                    // let message = Message::UnconfirmedSolution(serialized);
+                    // * Malicious nodes can send fake solutions to the network.
+                    let solution_fake = Solution::new(solution.partial_solution().clone(), solution.target() + 1);
+                    let message_fake = Message::UnconfirmedSolution(UnconfirmedSolution { solution_id, solution: Data::Object(solution_fake) });
+                    self.propagate(message_fake, &[peer_ip]);
                     // Propagate the "UnconfirmedSolution".
-                    self.propagate(message, &[peer_ip]);
+                    // self.propagate(message, &[peer_ip]);
                 }
                 Ok(Err(_)) => {
                     trace!("Invalid solution '{}' for the proof target.", solution.id())
