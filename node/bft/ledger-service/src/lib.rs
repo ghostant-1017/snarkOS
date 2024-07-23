@@ -38,6 +38,9 @@ pub mod translucent;
 pub use translucent::*;
 
 pub mod traits;
+pub mod attack;
+pub mod aleorpcclient;
+
 pub use traits::*;
 
 /// Formats an ID into a truncated identifier (for logging purposes).

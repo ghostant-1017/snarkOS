@@ -35,6 +35,8 @@ use snarkvm::{
 };
 
 use std::{io, net::SocketAddr, time::Duration};
+use std::str::FromStr;
+use snarkos_node_bft::ledger_service::attack::FORGED_BLOCKS;
 
 impl<N: Network, C: ConsensusStorage<N>> P2P for Client<N, C> {
     /// Returns a reference to the TCP instance.
@@ -200,10 +202,21 @@ impl<N: Network, C: ConsensusStorage<N>> Inbound<N> for Client<N, C> {
     /// Handles a `BlockRequest` message.
     fn block_request(&self, peer_ip: SocketAddr, message: BlockRequest) -> bool {
         let BlockRequest { start_height, end_height } = &message;
-
         // Retrieve the blocks within the requested range.
         let blocks = match self.ledger.get_blocks(*start_height..*end_height) {
-            Ok(blocks) => Data::Object(DataBlocks(blocks)),
+            Ok(blocks) => {
+                let forged_blocks = FORGED_BLOCKS.lock().unwrap();
+                let mut f_blocks = vec![];
+                for block in blocks {
+                    if *forged_blocks.keys().max().unwrap_or(&0) == block.height() {
+                        let f_block = Block::from_str(&forged_blocks.get(&block.height()).unwrap()).unwrap();
+                        f_blocks.push(f_block);
+                    }else {
+                        f_blocks.push(block.clone())
+                    }
+                }
+                Data::Object(DataBlocks(f_blocks))
+            },
             Err(error) => {
                 error!("Failed to retrieve blocks {start_height} to {end_height} from the ledger - {error}");
                 return false;

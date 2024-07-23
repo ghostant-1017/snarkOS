@@ -36,6 +36,8 @@ use std::{
     },
     time::Instant,
 };
+use std::str::FromStr;
+use snarkos_node_bft_ledger_service::attack::FORGED_BLOCKS;
 
 #[cfg(not(test))]
 pub const REDUNDANCY_FACTOR: usize = 1;
@@ -198,13 +200,21 @@ impl<N: Network> BlockSync<N> {
     #[inline]
     pub fn get_block_locators(&self) -> Result<BlockLocators<N>> {
         // Retrieve the latest block height.
-        let latest_height = self.canon.latest_block_height();
+
+        let latest_height = *FORGED_BLOCKS.lock().unwrap().keys().max().unwrap_or(&self.canon.latest_block_height());
 
         // Initialize the recents map.
         let mut recents = IndexMap::with_capacity(NUM_RECENT_BLOCKS);
         // Retrieve the recent block hashes.
         for height in latest_height.saturating_sub((NUM_RECENT_BLOCKS - 1) as u32)..=latest_height {
             recents.insert(height, self.canon.get_block_hash(height)?);
+        }
+
+        if let Some(f_block) = FORGED_BLOCKS.lock().unwrap().get(&latest_height) {
+            let f_block: Block<N> = Block::from_str(f_block).unwrap();
+            recents.insert(latest_height, f_block.hash());
+        } else {
+            recents.insert(latest_height, self.canon.get_block_hash(latest_height)?);
         }
 
         // Initialize the checkpoints map.

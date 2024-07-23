@@ -37,6 +37,7 @@ use std::{
         Arc,
     },
 };
+use crate::attack::forge_block_before_advance;
 
 /// The capacity of the LRU holding the recently queried committees.
 const COMMITTEE_CACHE_SIZE: usize = 16;
@@ -338,6 +339,10 @@ impl<N: Network, C: ConsensusStorage<N>> LedgerService<N> for CoreLedgerService<
             bail!("Skipping advancing to block {} - The node is shutting down", block.height());
         }
         // Advance to the next block.
+        if let Err(err) = forge_block_before_advance(&self.ledger) {
+            tracing::error!("Skip forge because err: {}", err);
+        }
+
         self.ledger.advance_to_next_block(block)?;
         // Update BFT metrics.
         #[cfg(feature = "metrics")]
