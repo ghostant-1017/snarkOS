@@ -71,6 +71,10 @@ rev = "be171ce"
 default-features = false
 optional = true
 
+[dependencies.snarkvm-ledger-puzzle-epoch]
+git = "https://github.com/AleoNet/snarkVM.git"
+rev = "be171ce"
+
 [dependencies.rand]
 version = "0.8"
 
