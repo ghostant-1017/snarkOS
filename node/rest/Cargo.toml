@@ -68,14 +68,14 @@ version = "=2.2.7"
 #path = "../../../snarkVM/synthesizer"
 git = "https://github.com/AleoNet/snarkVM.git"
 #rev = "02994a1"
-rev = "79c7850"
+rev = "d391211"
 default-features = false
 optional = true
 
 [dependencies.snarkvm-ledger-puzzle-epoch]
 git = "https://github.com/AleoNet/snarkVM.git"
 #rev = "02994a1"
-rev = "79c7850"
+rev = "d391211"
 
 [dependencies.rand]
 version = "0.8"
