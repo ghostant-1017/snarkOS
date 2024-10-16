@@ -65,7 +65,7 @@ path = "../router"
 version = "=2.2.7"
 
 [dependencies.snarkvm-synthesizer]
-git = "ssh://git@github.com/IPFS-Foce/snarkVM.git"
+git = "ssh://git@github.com/IPFS-Force/snarkVM.git"
 rev = "d391211"
 default-features = false
 optional = true
@@ -74,7 +74,7 @@ optional = true
 #git = "https://github.com/AleoNet/snarkVM.git"
 ##rev = "02994a1"
 #rev = "d391211"
-git = "ssh://git@github.com/IPFS-Foce/snarkVM.git"
+git = "ssh://git@github.com/IPFS-Force/snarkVM.git"
 rev = "d391211"
 
 [dependencies.rand]

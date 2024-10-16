@@ -46,7 +46,7 @@ default-features = false
 
 [workspace.dependencies.snarkvm]
 #path = "../snarkVM"
-git = "ssh://git@github.com/IPFS-Foce/snarkVM.git"
+git = "ssh://git@github.com/IPFS-Force/snarkVM.git"
 rev = "d391211"
 # If this is updated, the rev in `node/rest/Cargo.toml` must be updated as well.
 #version = "=0.16.18"
