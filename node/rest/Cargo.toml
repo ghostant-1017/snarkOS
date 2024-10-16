@@ -65,16 +65,16 @@ path = "../router"
 version = "=2.2.7"
 
 [dependencies.snarkvm-synthesizer]
-#path = "../../../snarkVM/synthesizer"
-git = "https://github.com/AleoNet/snarkVM.git"
-#rev = "02994a1"
+git = "ssh://git@github.com/IPFS-Foce/snarkVM.git"
 rev = "d391211"
 default-features = false
 optional = true
 
 [dependencies.snarkvm-ledger-puzzle-epoch]
-git = "https://github.com/AleoNet/snarkVM.git"
-#rev = "02994a1"
+#git = "https://github.com/AleoNet/snarkVM.git"
+##rev = "02994a1"
+#rev = "d391211"
+git = "ssh://git@github.com/IPFS-Foce/snarkVM.git"
 rev = "d391211"
 
 [dependencies.rand]
